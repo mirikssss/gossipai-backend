@@ -11,33 +11,14 @@ logger = logging.getLogger(__name__)
 
 # Set Google Cloud credentials environment variable
 if settings.GOOGLE_APPLICATION_CREDENTIALS:
-    try:
-        # Try to parse as JSON first
-        credentials_info = json.loads(settings.GOOGLE_APPLICATION_CREDENTIALS)
-        from google.oauth2 import service_account
-        credentials = service_account.Credentials.from_service_account_info(credentials_info)
-        logger.info("Parsed GOOGLE_APPLICATION_CREDENTIALS as JSON")
-    except json.JSONDecodeError:
-        # If not JSON, treat as file path
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
-        credentials = None
-        logger.info(f"Set GOOGLE_APPLICATION_CREDENTIALS as file path: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
-    except Exception as e:
-        logger.error(f"Error parsing GOOGLE_APPLICATION_CREDENTIALS: {e}")
-        credentials = None
-else:
-    credentials = None
-    logger.warning("GOOGLE_APPLICATION_CREDENTIALS not set")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+    logger.info(f"Set GOOGLE_APPLICATION_CREDENTIALS to: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
 
 # Initialize Vertex AI with error handling
 vertex_ai_initialized = False
 try:
-    if credentials:
-        vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION, credentials=credentials)
-        logger.info(f"Vertex AI initialized with credentials for project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
-    else:
-        vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION)
-        logger.info(f"Vertex AI initialized with default credentials for project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
+    vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION)
+    logger.info(f"Vertex AI initialized with project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
     vertex_ai_initialized = True
 except Exception as e:
     logger.error(f"Failed to initialize Vertex AI: {e}")
@@ -63,6 +44,12 @@ class AIService:
             # Check if credentials are set
             if not settings.GOOGLE_APPLICATION_CREDENTIALS:
                 logger.error("GOOGLE_APPLICATION_CREDENTIALS not set in settings")
+                return await AIService.mock_analysis_result(preset_id)
+            
+            # Check if credentials file exists
+            creds_path = settings.GOOGLE_APPLICATION_CREDENTIALS
+            if not os.path.exists(creds_path):
+                logger.error(f"Credentials file not found: {creds_path}")
                 return await AIService.mock_analysis_result(preset_id)
             
             logger.info("Initializing Gemini model")
@@ -233,6 +220,9 @@ class AIService:
 
             {preset_instructions}
             
+            ВАЖНО: Если текст короткий или содержит мало информации, все равно проведи анализ на основе доступных данных.
+            Даже короткие фразы могут содержать эмоциональную информацию.
+            
             {f"Дополнительные инструкции: {additional_prompt}" if additional_prompt else ""}
 
             Предоставь анализ в следующем JSON формате (give answers in russian):
@@ -290,16 +280,8 @@ class AIService:
                 prompt += f"\n\nAdditional analysis instructions: {additional_prompt}"
             
             logger.info(f"Generating content with Gemini using temperature {model_temperature}")
-            # Generate response from Gemini with specified temperature and timeout
-            response = model.generate_content(
-                prompt, 
-                generation_config={
-                    "temperature": model_temperature,
-                    "max_output_tokens": 8192,
-                    "top_p": 0.8,
-                    "top_k": 40
-                }
-            )
+            # Generate response from Gemini with specified temperature
+            response = model.generate_content(prompt, generation_config={"temperature": model_temperature})
             
             # Parse the response to extract the JSON
             result = response.text
@@ -312,9 +294,15 @@ class AIService:
                     json_start = result.find("```json") + 7
                     json_end = result.find("```", json_start)
                     json_str = result[json_start:json_end].strip()
+                elif "```" in result:
+                    # Handle other markdown code blocks
+                    json_start = result.find("```") + 3
+                    json_end = result.find("```", json_start)
+                    json_str = result[json_start:json_end].strip()
                 else:
                     json_str = result.strip()
                 
+                logger.info(f"Attempting to parse JSON: {json_str[:200]}...")
                 parsed_result = json.loads(json_str)
                 
                 # Add preset-specific data to the result if preset is provided
@@ -343,6 +331,8 @@ class AIService:
             
         except Exception as e:
             logger.error(f"Error in text analysis: {str(e)}")
+            logger.error(f"Text length: {len(text)} characters")
+            logger.error(f"Text preview: {text[:200]}...")
             # Fallback to mock analysis
             logger.warning("Falling back to mock analysis due to error")
             return await AIService.mock_analysis_result(preset_id)
@@ -387,7 +377,7 @@ class AIService:
             """
             
             logger.info("Generating chat response with Gemini")
-            model = GenerativeModel("gemini-2.0-pro")
+            model = GenerativeModel("gemini-2.5-pro")
             response = model.generate_content(chat_prompt)
             
             ai_response = response.text.strip()
