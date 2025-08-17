@@ -251,19 +251,29 @@ async def analyze_multiple_files(
         
         logger.info(f"Processing {len(files)} files in order: {file_order} - FIXED")
         
-        # Parse file_order - it might be a JSON string or a list
+        # Parse file_order - handle different formats
         try:
             if isinstance(file_order, str):
                 import json
                 file_order_list = json.loads(file_order)
-            else:
+            elif isinstance(file_order, list):
                 file_order_list = file_order
+            else:
+                file_order_list = [str(i) for i in range(len(files))]
         except (json.JSONDecodeError, TypeError):
             # Fallback: use default order
             file_order_list = [str(i) for i in range(len(files))]
         
-        # Sort files by order
-        file_order_ints = [int(order) for order in file_order_list]
+        # Convert to integers and validate
+        try:
+            file_order_ints = [int(order) for order in file_order_list]
+            # Validate that all indices are within bounds
+            if any(i < 0 or i >= len(files) for i in file_order_ints):
+                file_order_ints = list(range(len(files)))
+        except (ValueError, TypeError):
+            # If conversion fails, use default order
+            file_order_ints = list(range(len(files)))
+        
         sorted_files = [files[i] for i in file_order_ints]
         
         # Extract text from all images
