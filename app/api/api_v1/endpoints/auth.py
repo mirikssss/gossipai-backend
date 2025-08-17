@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from app.models.user import UserCreate, UserLogin, User
 from app.services.auth import AuthService
 from app.api.deps import get_current_user
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -14,8 +15,16 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/register")
-async def register(user_data: UserCreate):
+async def register(request: Request, user_data: UserCreate):
     """Register a new user"""
+    # Log the raw request data for debugging
+    try:
+        body = await request.body()
+        logger.info(f"Raw request body: {body.decode()}")
+        logger.info(f"Parsed user_data: {user_data}")
+    except Exception as e:
+        logger.error(f"Error logging request data: {e}")
+    
     result = await AuthService.register(user_data)
     
     if not result["success"]:
