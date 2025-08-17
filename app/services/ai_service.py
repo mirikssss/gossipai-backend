@@ -11,14 +11,33 @@ logger = logging.getLogger(__name__)
 
 # Set Google Cloud credentials environment variable
 if settings.GOOGLE_APPLICATION_CREDENTIALS:
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
-    logger.info(f"Set GOOGLE_APPLICATION_CREDENTIALS to: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+    try:
+        # Try to parse as JSON first
+        credentials_info = json.loads(settings.GOOGLE_APPLICATION_CREDENTIALS)
+        from google.oauth2 import service_account
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        logger.info("Parsed GOOGLE_APPLICATION_CREDENTIALS as JSON")
+    except json.JSONDecodeError:
+        # If not JSON, treat as file path
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+        credentials = None
+        logger.info(f"Set GOOGLE_APPLICATION_CREDENTIALS as file path: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+    except Exception as e:
+        logger.error(f"Error parsing GOOGLE_APPLICATION_CREDENTIALS: {e}")
+        credentials = None
+else:
+    credentials = None
+    logger.warning("GOOGLE_APPLICATION_CREDENTIALS not set")
 
 # Initialize Vertex AI with error handling
 vertex_ai_initialized = False
 try:
-    vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION)
-    logger.info(f"Vertex AI initialized with project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
+    if credentials:
+        vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION, credentials=credentials)
+        logger.info(f"Vertex AI initialized with credentials for project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
+    else:
+        vertexai.init(project=settings.VERTEX_AI_PROJECT, location=settings.VERTEX_AI_LOCATION)
+        logger.info(f"Vertex AI initialized with default credentials for project: {settings.VERTEX_AI_PROJECT}, location: {settings.VERTEX_AI_LOCATION}")
     vertex_ai_initialized = True
 except Exception as e:
     logger.error(f"Failed to initialize Vertex AI: {e}")
@@ -44,12 +63,6 @@ class AIService:
             # Check if credentials are set
             if not settings.GOOGLE_APPLICATION_CREDENTIALS:
                 logger.error("GOOGLE_APPLICATION_CREDENTIALS not set in settings")
-                return await AIService.mock_analysis_result(preset_id)
-            
-            # Check if credentials file exists
-            creds_path = settings.GOOGLE_APPLICATION_CREDENTIALS
-            if not os.path.exists(creds_path):
-                logger.error(f"Credentials file not found: {creds_path}")
                 return await AIService.mock_analysis_result(preset_id)
             
             logger.info("Initializing Gemini model")
