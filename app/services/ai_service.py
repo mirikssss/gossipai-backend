@@ -290,8 +290,16 @@ class AIService:
                 prompt += f"\n\nAdditional analysis instructions: {additional_prompt}"
             
             logger.info(f"Generating content with Gemini using temperature {model_temperature}")
-            # Generate response from Gemini with specified temperature
-            response = model.generate_content(prompt, generation_config={"temperature": model_temperature})
+            # Generate response from Gemini with specified temperature and timeout
+            response = model.generate_content(
+                prompt, 
+                generation_config={
+                    "temperature": model_temperature,
+                    "max_output_tokens": 8192,
+                    "top_p": 0.8,
+                    "top_k": 40
+                }
+            )
             
             # Parse the response to extract the JSON
             result = response.text
