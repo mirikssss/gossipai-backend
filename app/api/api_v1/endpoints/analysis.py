@@ -249,7 +249,7 @@ async def analyze_multiple_files(
         if len(files) == 0:
             raise HTTPException(status_code=400, detail="Не загружено ни одного файла")
         
-        logger.info(f"Processing {len(files)} files in order: {file_order}")
+        logger.info(f"Processing {len(files)} files in order: {file_order} - FIXED")
         
         # Parse file_order - it might be a JSON string or a list
         try:
