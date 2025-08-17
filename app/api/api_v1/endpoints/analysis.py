@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from app.models.user import User
 from app.services.ai_service import AIService
 from app.services.ocr_service import OCRService
@@ -23,6 +23,17 @@ class TextAnalysisRequest(BaseModel):
     additional_prompt: Optional[str] = None
     preset_id: Optional[str] = None
     temperature: Optional[float] = None
+    
+    @validator('temperature', pre=True)
+    def validate_temperature(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                raise ValueError('temperature must be a valid number')
+        return v
 
 class ChatMessageRequest(BaseModel):
     message: str
