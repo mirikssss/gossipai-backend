@@ -1,10 +1,21 @@
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, EmailStr, validator
 from uuid import UUID
+import re
 
 class UserBase(BaseModel):
     email: EmailStr
     name: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v:
+            raise ValueError('Email cannot be empty')
+        # Basic email validation
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, v):
+            raise ValueError('Invalid email format')
+        return v.lower().strip()
     
     @validator('name')
     def validate_name(cls, v):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from app.models.user import UserCreate, UserLogin, User
 from app.services.auth import AuthService
 from app.api.deps import get_current_user
@@ -15,15 +15,46 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/register")
-async def register(request: Request, user_data: UserCreate):
+async def register(request: Request):
     """Register a new user"""
     # Log the raw request data for debugging
     try:
         body = await request.body()
-        logger.info(f"Raw request body: {body.decode()}")
-        logger.info(f"Parsed user_data: {user_data}")
+        body_str = body.decode()
+        logger.info(f"Raw request body: {body_str}")
+        
+        # Try to parse as JSON
+        try:
+            body_json = json.loads(body_str)
+            logger.info(f"Parsed JSON: {body_json}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid JSON format"
+            )
+        
+        # Validate the data
+        try:
+            user_data = UserCreate(**body_json)
+            logger.info(f"Validated user_data: {user_data}")
+        except ValidationError as e:
+            logger.error(f"Validation error: {e.errors()}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "Validation error",
+                    "errors": e.errors(),
+                    "received_data": body_json
+                }
+            )
+            
     except Exception as e:
-        logger.error(f"Error logging request data: {e}")
+        logger.error(f"Error processing request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error processing request: {str(e)}"
+        )
     
     result = await AuthService.register(user_data)
     
@@ -90,3 +121,43 @@ async def logout():
         )
     
     return {"message": "Logged out successfully"}
+
+@router.post("/test-validation")
+async def test_validation(request: Request):
+    """Test endpoint for validation debugging"""
+    try:
+        body = await request.body()
+        body_str = body.decode()
+        logger.info(f"Test validation - Raw body: {body_str}")
+        
+        body_json = json.loads(body_str)
+        logger.info(f"Test validation - Parsed JSON: {body_json}")
+        
+        # Try to create UserCreate object
+        user_data = UserCreate(**body_json)
+        logger.info(f"Test validation - Success: {user_data}")
+        
+        return {
+            "success": True,
+            "message": "Validation passed",
+            "data": {
+                "email": user_data.email,
+                "name": user_data.name,
+                "password_length": len(user_data.password)
+            }
+        }
+        
+    except ValidationError as e:
+        logger.error(f"Test validation - Validation error: {e.errors()}")
+        return {
+            "success": False,
+            "message": "Validation failed",
+            "errors": e.errors(),
+            "received_data": body_json if 'body_json' in locals() else None
+        }
+    except Exception as e:
+        logger.error(f"Test validation - Error: {e}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
