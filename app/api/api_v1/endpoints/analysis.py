@@ -40,7 +40,7 @@ class ChatMessageRequest(BaseModel):
     conversation_id: Optional[str] = None
 
 class SuggestedResponsesRequest(BaseModel):
-    conversation_text: str
+    conversation_text: Optional[str] = None
     context: Optional[str] = None
 
 @router.post("/text")
@@ -342,6 +342,15 @@ async def get_suggested_responses(
 ):
     """Get suggested responses based on conversation analysis"""
     try:
+        if not request.conversation_text:
+            # Return default responses if no conversation text provided
+            return {
+                "responses": [
+                    "Спасибо за ваш вопрос! Я готов помочь с анализом.",
+                    "Можете поделиться текстом разговора для более точных рекомендаций.",
+                    "Для получения персонализированных советов, пожалуйста, загрузите текст."
+                ]
+            }
         result = await AIService.get_suggested_responses(request.conversation_text, request.context)
         return result
     except Exception as e:
