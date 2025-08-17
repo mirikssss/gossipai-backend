@@ -130,15 +130,18 @@ async def analyze_file(
     file: UploadFile = File(...),
     additional_prompt: Optional[str] = Form(None),
     preset_id: Optional[str] = Form(None),
-    temperature: Optional[float] = Form(None),
+    temperature: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user)
 ):
+    # Convert temperature to float if provided
+    temperature_float = None
+    if temperature is not None:
+        try:
+            temperature_float = float(temperature)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid temperature value. Must be a valid number.")
     """Analyze uploaded file (text, image, or audio)"""
     try:
-        # Validate file
-        if not file or not file.filename:
-            raise HTTPException(status_code=400, detail="Файл не был загружен")
-        
         # Determine file type and process accordingly
         file_extension = file.filename.split(".")[-1].lower() if file.filename else ""
         content_type = file.content_type or ""
@@ -150,7 +153,7 @@ async def analyze_file(
             content = await file.read()
             text = content.decode("utf-8")
             logger.info(f"Extracted text from file: {len(text)} characters")
-            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature)
+            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature_float)
         elif file_extension in ["jpg", "jpeg", "png", "gif", "bmp", "webp"] or content_type.startswith("image/"):
             # Image file - use OCR
             content = await file.read()
@@ -165,14 +168,14 @@ async def analyze_file(
                     detail=f"Ошибка OCR: {text}. Убедитесь, что Google Vision API активирован в проекте."
                 )
             
-            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature)
+            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature_float)
         elif file_extension in ["mp3", "wav", "m4a", "ogg", "aac"] or content_type.startswith("audio/"):
             # Audio file - use speech-to-text
             content = await file.read()
             logger.info(f"Processing audio file: {len(content)} bytes")
             text = await SpeechService.transcribe_audio(content)
             logger.info(f"Transcribed audio: {len(text)} characters")
-            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature)
+            analysis_result = await AIService.analyze_text(text, additional_prompt, preset_id, temperature_float)
         elif file_extension == "pdf":
             # PDF file - for now, treat as unsupported
             raise HTTPException(status_code=400, detail="PDF файлы пока не поддерживаются. Пожалуйста, конвертируйте в изображение или текст.")
@@ -217,9 +220,16 @@ async def analyze_multiple_files(
     file_order: List[str] = Form(...),
     additional_prompt: Optional[str] = Form(None),
     preset_id: Optional[str] = Form(None),
-    temperature: Optional[float] = Form(None),
+    temperature: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user)
 ):
+    # Convert temperature to float if provided
+    temperature_float = None
+    if temperature is not None:
+        try:
+            temperature_float = float(temperature)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid temperature value. Must be a valid number.")
     """Analyze multiple uploaded files (images) in order"""
     try:
         if len(files) > 4:
@@ -264,7 +274,7 @@ async def analyze_multiple_files(
         logger.info(f"Combined text from {len(all_texts)} files: {len(combined_text)} characters")
         
         # Analyze combined text
-        analysis_result = await AIService.analyze_text(combined_text, additional_prompt, preset_id, temperature)
+        analysis_result = await AIService.analyze_text(combined_text, additional_prompt, preset_id, temperature_float)
         
         # Create history entry
         result = analysis_result["result"]
@@ -310,14 +320,7 @@ async def get_suggested_responses(
 ):
     """Get suggested responses based on conversation analysis"""
     try:
-        # Validate input
-        if not request.conversation_text or not request.conversation_text.strip():
-            raise HTTPException(status_code=400, detail="Текст разговора не может быть пустым")
-        
         result = await AIService.get_suggested_responses(request.conversation_text, request.context)
         return result
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error in suggested responses: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
