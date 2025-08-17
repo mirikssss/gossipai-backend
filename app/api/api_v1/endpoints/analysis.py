@@ -135,6 +135,10 @@ async def analyze_file(
 ):
     """Analyze uploaded file (text, image, or audio)"""
     try:
+        # Validate file
+        if not file or not file.filename:
+            raise HTTPException(status_code=400, detail="Файл не был загружен")
+        
         # Determine file type and process accordingly
         file_extension = file.filename.split(".")[-1].lower() if file.filename else ""
         content_type = file.content_type or ""
@@ -306,7 +310,14 @@ async def get_suggested_responses(
 ):
     """Get suggested responses based on conversation analysis"""
     try:
+        # Validate input
+        if not request.conversation_text or not request.conversation_text.strip():
+            raise HTTPException(status_code=400, detail="Текст разговора не может быть пустым")
+        
         result = await AIService.get_suggested_responses(request.conversation_text, request.context)
         return result
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error in suggested responses: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

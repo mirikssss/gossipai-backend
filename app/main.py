@@ -20,14 +20,35 @@ app = FastAPI(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"Validation error: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content={
-            "detail": "Validation error",
-            "errors": exc.errors(),
-            "body": exc.body
-        }
-    )
+    
+    # Handle FormData requests differently
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        # For FormData requests, don't include the body in response
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Validation error",
+                "errors": exc.errors(),
+                "message": "Invalid form data"
+            }
+        )
+    else:
+        # For JSON requests, include the body
+        try:
+            body = await request.body()
+            body_str = body.decode() if body else None
+        except:
+            body_str = None
+            
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Validation error",
+                "errors": exc.errors(),
+                "body": body_str
+            }
+        )
 
 # Set up CORS with comprehensive origins
 cors_origins = [
