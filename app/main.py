@@ -93,3 +93,18 @@ async def root():
         "version": "0.1.0",
         "cors_origins": cors_origins
     }
+
+# Health check endpoint for uptime monitoring
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": "2025-08-18T01:01:55Z",
+        "service": settings.PROJECT_NAME,
+        "version": "0.1.0"
+    }
+
+# Simple ping endpoint for uptime monitoring
+@app.get("/ping")
+async def ping():
+    return {"pong": "ok"}
