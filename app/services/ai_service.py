@@ -208,27 +208,26 @@ class AIService:
                         
                         "team_analytics": {{
                             "communication_metrics": {{
-                                "participation_rate": число_от_0_до_100,
-                                "response_time": "среднее_время_ответа",
-                                "engagement_score": число_от_0_до_100
+                                "speaking_time": {{"Участник1": 60, "Участник2": 40}},
+                                "question_frequency": {{"Участник1": 5, "Участник2": 3}},
+                                "solution_proposals": {{"Участник1": 2, "Участник2": 1}}
                             }},
-                            "decision_efficiency": число_от_0_до_100,
-                            "goal_achievement": число_от_0_до_100
+                            "goal_effectiveness": число_от_0_до_100
                         }},
                         "psychological_safety": {{
                             "safety_level": число_от_0_до_100,
-                            "trust_indicators": ["индикатор1", "индикатор2", "индикатор3"],
-                            "openness_score": число_от_0_до_100
+                            "openness_indicators": ["индикатор1", "индикатор2", "индикатор3"],
+                            "trust_level": "высокий/средний/низкий"
                         }},
                         "professional_growth": {{
                             "skill_analysis": [
                                 {{
-                                    "skill": "навык",
-                                    "current_level": число_от_1_до_5,
-                                    "development_area": "область_развития"
+                                    "person": "Участник1",
+                                    "strengths": ["сила1", "сила2", "сила3"],
+                                    "areas_to_develop": ["область1", "область2"]
                                 }}
                             ],
-                            "growth_recommendations": ["рекомендация1", "рекомендация2", "рекомендация3"]
+                            "recommendations": ["рекомендация1", "рекомендация2", "рекомендация3"]
                         }}
                         """
             
