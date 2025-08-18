@@ -38,6 +38,7 @@ class TextAnalysisRequest(BaseModel):
 class ChatMessageRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
+    analysis_context: Optional[str] = None
 
 class SuggestedResponsesRequest(BaseModel):
     conversation_text: Optional[str] = None
@@ -340,7 +341,7 @@ async def chat_with_ai(
 ):
     """Chat with AI about the analyzed conversation"""
     try:
-        result = await AIService.chat_with_ai(request.message, request.conversation_id)
+        result = await AIService.chat_with_ai(request.message, request.conversation_id, request.analysis_context)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

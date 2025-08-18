@@ -417,7 +417,7 @@ class AIService:
             return await AIService.mock_analysis_result(preset_id)
     
     @staticmethod
-    async def chat_with_ai(message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+    async def chat_with_ai(message: str, conversation_id: Optional[str] = None, analysis_context: Optional[str] = None) -> Dict[str, Any]:
         """Chat with AI about the analyzed conversation"""
         try:
             logger.info("Starting AI chat")
@@ -446,7 +446,9 @@ class AIService:
             chat_prompt = f"""
             Ты - ИИ-консультант по анализу разговоров. Отвечай на русском языке.
             
-            Контекст анализа разговора:
+            {f"Контекст анализа разговора: {analysis_context}" if analysis_context else ""}
+            
+            Контекст предыдущих сообщений:
             {context}
             
             Вопрос пользователя: {message}
